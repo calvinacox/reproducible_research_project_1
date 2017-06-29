@@ -1,0 +1,201 @@
+---
+title: "Reproducible Research Project 1"
+author: "Calvin Cox"
+date: "6/16/2017"
+output:
+  html_document: 
+    keep_md: true
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Loading and preprocessing the data
+
+Show any code that is needed to
+
+Load the data (i.e. 𝚛𝚎𝚊𝚍.𝚌𝚜𝚟())
+Process/transform the data (if necessary) into a format suitable for your analysis
+
+
+
+```{r DOWNLOAD}
+
+# Downloading files
+tech_url <-"https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+download.file(tech_url, "activity_monitoring_data.zip", mode="wb")
+unzip("activity_monitoring_data.zip")
+activity<-read.csv("activity.csv")
+#summary(activity)
+#str(activity)
+
+```
+What is mean total number of steps taken per day?
+
+For this part of the assignment, you can ignore the missing values in the dataset.
+
+Calculate the total number of steps taken per day
+Make a histogram of the total number of steps taken each day
+
+```{r SUM}
+
+library(plyr)
+library(ggplot2)
+total_steps_day<-ddply(activity,"date",summarise,total_steps=sum(steps))
+total_steps_day
+
+hist(total_steps_day$total_steps,col="red")
+
+```
+
+
+<b>Calculate and report the mean and median of the total number of steps taken per day</b>
+
+```{r MEAN_MEDIAN}
+
+mean_steps_day<-mean(total_steps_day$total_steps,na.rm=TRUE)
+mean_steps_day
+
+
+
+
+```
+```{r MEDIAN}
+
+median_steps_day<-median(total_steps_day$total_steps,na.rm=TRUE)
+median_steps_day
+
+
+```
+
+
+What is the average daily activity pattern?
+
+Make a time series plot (i.e. 𝚝𝚢𝚙𝚎 = "𝚕") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r Time_Series}
+library(lattice)
+
+interval_avg_steps<-ddply(activity,"interval",summarise,average_steps=mean(steps,na.rm=TRUE))
+#interval_avg_steps
+
+
+xyplot(average_steps ~ interval, interval_avg_steps,type="l",grid = TRUE)
+
+#Max average steps per 5 minute inteval.
+max_avg<-which.max(interval_avg_steps$average_steps)
+interval_avg_steps[max_avg,]
+
+```
+
+
+<b>Imputing missing values</b>  
+
+Note that there are a number of days/intervals where there are missing values (coded as 𝙽𝙰). The presence of missing days may introduce bias into some calculations or summaries of the data.
+
+Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with 𝙽𝙰s)
+
+Create a new dataset that is equal to the original dataset but with the missing data filled in.
+
+Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day.
+
+
+
+```{r Missing_values}
+
+
+summary(activity)
+sum(is.na(activity))
+
+
+
+# Imputing Missing Values. Missing values are replaced by averaging the values of each 5 minute interval
+
+#Merge the activity dataset with the interval average dataframe - basically matching up the interval averages
+# to the their respective intervals.
+activity_interval_avg<-merge(activity,interval_avg_steps,by="interval")
+
+#Create a new dataset that is equal to the original dataset but with the missing data filled in.
+# Find and replace the NA values with the respective averages for each interval. 
+activity_interval_avg$steps[is.na(activity_interval_avg$steps)] <- activity_interval_avg$average_steps[is.na(activity_interval_avg$steps)]
+
+#activity_interval_avg
+total_steps_day_2<-ddply(activity_interval_avg,"date",summarise,total_steps=sum(steps))
+
+
+hist(total_steps_day_2$total_steps, col="blue")
+
+
+```
+
+Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. 
+
+<b>Do these values differ from the estimates from the first part of the assignment? </b>  
+Yes, but not by much. Values are within 0.1% of each other.
+
+<b>What is the impact of imputing missing data on the estimates of the total daily number of steps?</b>  
+Imputing the data has very little inpact on the overall mean and median, which is desireable.  The biggest impact can be seen between 10000 and 15000 steps.
+
+```{r}
+
+
+hist(total_steps_day_2$total_steps,col="blue")
+
+#overlapping original histogram on top of histogram with inputed data.
+hist(total_steps_day$total_steps,col="red",add=T)
+legend("topright", c("Imputed Data", "Orignal Data"), fill=c("blue", "red") )
+
+```
+
+
+
+
+
+```{r}
+mean_steps_day_2<-mean(total_steps_day_2$total_steps,na.rm=TRUE)
+mean_steps_day_2
+
+#hist(interval_avg_steps$average_steps)
+```
+
+
+
+
+
+
+
+```{r}
+median_steps_day_2<-median(total_steps_day_2$total_steps,na.rm=TRUE)
+median_steps_day_2
+
+```
+<b>Are there differences in activity patterns between weekdays and weekends?</b>  
+Yes, the activity patterns are different between weekdays and weekends.
+
+Create a new factor variable in the dataset with two levels – “weekday” and “weekend” indicating whether a given date is a weekday or weekend day.
+
+Make a panel plot containing a time series plot (i.e. 𝚝𝚢𝚙𝚎 = "𝚕") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). 
+```{r}
+activity_interval_avg_wkday<-activity_interval_avg
+activity_interval_avg_wkday$date<-as.Date(activity_interval_avg_wkday$date)
+#activity_interval_avg_wkday
+
+activity_interval_avg_wkday$weekdays<-weekdays(activity_interval_avg_wkday$date)
+activity_interval_avg_wkday$weekdays_split<- ifelse(activity_interval_avg_wkday$weekdays=="Saturday" | 
+                                                activity_interval_avg_wkday$weekdays =="Sunday", "Weekend","Weekday")
+                                              
+#str(activity_interval_avg_wkday)
+
+
+interval_avg_steps<-ddply(activity,"interval",summarise,average_steps=mean(steps,na.rm=TRUE))
+
+new_interval_avg_steps <- aggregate(steps ~ interval + weekdays_split, activity_interval_avg_wkday, mean)
+#new_interval_avg_steps
+
+xyplot(steps ~ interval|weekdays_split, new_interval_avg_steps,type="l",layout=c(1,2), grid = TRUE)
+
+```
+
